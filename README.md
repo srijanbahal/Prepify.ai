@@ -104,7 +104,7 @@ Prepify.ai is a comprehensive career intelligence platform that leverages advanc
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/yourusername/prepify-ai.git
+git clone https://github.com/srijanbahal/prepify-ai.git
 cd prepify-ai
 ```
 
@@ -331,12 +331,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **HuggingFace** for specialized AI models
 - **Next.js** and **FastAPI** communities for excellent frameworks
 
-## 📞 Support
-
-- **Documentation**: [docs.prepify.ai](https://docs.prepify.ai)
-- **Issues**: [GitHub Issues](https://github.com/yourusername/prepify-ai/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/prepify-ai/discussions)
-- **Email**: support@prepify.ai
 
 ## 🗺️ Roadmap
 
@@ -360,6 +354,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-**Built with ❤️ by the Prepify.ai Team**
+**Built with ❤️ by the Prepify.ai**
 
 *Empowering careers through AI-driven insights and personalized preparation.*
