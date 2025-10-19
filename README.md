@@ -1,7 +1,5 @@
 # Prepify.ai - AI-Powered Career Analysis & Interview Preparation Platform
 
-![Prepify.ai Logo](https://via.placeholder.com/400x100/1a1a1a/ffffff?text=Prepify.ai)
-
 Prepify.ai is a comprehensive career intelligence platform that leverages advanced AI to analyze resumes, job descriptions, and social profiles to provide personalized interview preparation and career guidance. Built with Next.js 15, FastAPI, and cutting-edge AI models including Gemini and CrewAI.
 
 ## 🚀 Features
