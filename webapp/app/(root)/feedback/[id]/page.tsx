@@ -16,7 +16,9 @@ import {
   Loader2,
   Download
 } from "lucide-react";
-import { db } from "@/lib/firebase/admin";
+// Import the client-side db instance and functions
+import { db } from "@/lib/firebase/client";
+import { doc, getDoc } from "firebase/firestore";
 
 export default function FeedbackPage() {
   const params = useParams();
@@ -26,16 +28,19 @@ export default function FeedbackPage() {
 
   useEffect(() => {
     const fetchFeedback = async () => {
+      if (!params.id) return;
+
       try {
-        const docRef = db.collection("feedback").doc(params.id as string);
-        const docSnap = await docRef.get();
+        // Use the client-side functions to get the document
+        const docRef = doc(db, "feedback", params.id as string);
+        const docSnap = await getDoc(docRef);
         
-        if (docSnap.exists) {
+        if (docSnap.exists()) {
           const data = docSnap.data();
           setFeedback({
             id: docSnap.id,
             ...data,
-            createdAt: data?.createdAt?.toDate() || new Date()
+            createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date()
           } as Feedback);
         } else {
           toast.error("Feedback not found");

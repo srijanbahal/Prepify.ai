@@ -15,7 +15,9 @@ import {
   Loader2,
   MessageSquare
 } from "lucide-react";
-import { db } from "@/lib/firebase/admin";
+// Import the client-side db instance and functions
+import { db } from "@/lib/firebase/client";
+import { doc, getDoc } from "firebase/firestore";
 
 // Vapi imports
 import useVapi  from "@vapi-ai/web";
@@ -26,35 +28,41 @@ export default function InterviewPage() {
   const [interview, setInterview] = useState<Interview | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isEnding, setIsEnding] = useState(false);
+  // const { vapiInstance } = useVapi(apiToken);
+  const apiToken = process.env.VAPI_API_TOKEN;
   
-  // Vapi hooks
-  const {
-    isCallActive,
-    isCallEnded,
-    isMuted,
-    isDeafened,
-    startCall,
-    endCall,
-    mute,
-    unmute,
-    deafen,
-    undeafen,
-    toggleCall,
-    call,
-  } = useVapi();
+// Option 3: Provide a default value
+const {
+  isCallActive,
+  isCallEnded,
+  isMuted,
+  isDeafened,
+  startCall,
+  endCall,
+  mute,
+  unmute,
+  deafen,
+  undeafen,
+  toggleCall,
+  vapiInstance,
+} = new useVapi(apiToken || 'default-token');
+
+const call = vapiInstance;
 
   useEffect(() => {
     const fetchInterview = async () => {
+      if (!params.id) return;
       try {
-        const docRef = db.collection("interviews").doc(params.id as string);
-        const docSnap = await docRef.get();
+        // Use the client-side functions to get the document
+        const docRef = doc(db, "interviews", params.id as string);
+        const docSnap = await getDoc(docRef);
         
-        if (docSnap.exists) {
+        if (docSnap.exists()) {
           const data = docSnap.data();
           setInterview({
             id: docSnap.id,
             ...data,
-            createdAt: data?.createdAt?.toDate() || new Date()
+            createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date()
           } as Interview);
         } else {
           toast.error("Interview not found");

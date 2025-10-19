@@ -1,12 +1,16 @@
 import Link from "next/link";
 import { Calendar, TrendingUp, Eye } from "lucide-react";
 
+// Update the props interface to expect createdAt as a string
 interface AnalysisCardProps {
-  analysis: Analysis;
+  analysis: Omit<Analysis, 'createdAt'> & { createdAt: string };
 }
 
 export default function AnalysisCard({ analysis }: AnalysisCardProps) {
-  const formatDate = (date: Date) => {
+  // Update the function to accept a string
+  const formatDate = (dateString: string) => {
+    // Create a new Date object from the string
+    const date = new Date(dateString);
     return date.toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
@@ -21,8 +25,6 @@ export default function AnalysisCard({ analysis }: AnalysisCardProps) {
   };
 
   const getStatusBadge = (analysis: Analysis) => {
-    // This would be determined by checking if there's an interview and feedback
-    // For now, we'll show "Analyzed" for all
     return (
       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-success-100/20 text-success-100">
         Analyzed
@@ -38,7 +40,7 @@ export default function AnalysisCard({ analysis }: AnalysisCardProps) {
             <Calendar className="w-4 h-4" />
             <span className="text-sm">{formatDate(analysis.createdAt)}</span>
           </div>
-          {getStatusBadge(analysis)}
+          {getStatusBadge(analysis as Analysis)}
         </div>
 
         <div className="mb-4">

@@ -16,7 +16,9 @@ import {
   Linkedin,
   Loader2
 } from "lucide-react";
-import { db } from "@/lib/firebase/admin";
+// Import the client-side db instance and functions
+import { db } from "@/lib/firebase/client"; 
+import { doc, getDoc } from "firebase/firestore";
 
 export default function ReportPage() {
   const params = useParams();
@@ -27,16 +29,20 @@ export default function ReportPage() {
 
   useEffect(() => {
     const fetchAnalysis = async () => {
+      if (!params.id) return;
+
       try {
-        const docRef = db.collection("analyses").doc(params.id as string);
-        const docSnap = await docRef.get();
+        // Use the client-side functions to get the document
+        const docRef = doc(db, "analyses", params.id as string);
+        const docSnap = await getDoc(docRef);
         
-        if (docSnap.exists) {
+        if (docSnap.exists()) {
           const data = docSnap.data();
           setAnalysis({
             id: docSnap.id,
             ...data,
-            createdAt: data?.createdAt?.toDate() || new Date()
+            // Convert Firestore Timestamp to Date if it exists
+            createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date()
           } as Analysis);
         } else {
           toast.error("Analysis not found");
@@ -53,7 +59,7 @@ export default function ReportPage() {
 
     fetchAnalysis();
   }, [params.id, router]);
-
+  
   const handleStartInterview = async () => {
     setIsGeneratingInterview(true);
     
@@ -103,7 +109,7 @@ export default function ReportPage() {
     if (score >= 60) return "bg-yellow-400/20";
     return "bg-destructive-100/20";
   };
-
+  
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">

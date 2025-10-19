@@ -7,6 +7,7 @@ export default async function Dashboard() {
   const user = await getCurrentUser();
   
   if (!user) {
+    // This case should be handled by the layout, but it's good practice
     return null;
   }
 
@@ -16,11 +17,17 @@ export default async function Dashboard() {
     .orderBy("createdAt", "desc");
   
   const snapshot = await analysesRef.get();
-  const analyses = snapshot.docs.map(doc => ({
-    id: doc.id,
-    ...doc.data(),
-    createdAt: doc.data().createdAt?.toDate() || new Date()
-  })) as Analysis[];
+  
+  // Modify the mapping to convert Date to a string
+  const analyses = snapshot.docs.map(doc => {
+    const data = doc.data();
+    return {
+      id: doc.id,
+      ...data,
+      // Convert Timestamp to a serializable ISO string
+      createdAt: data.createdAt?.toDate() ? data.createdAt.toDate().toISOString() : new Date().toISOString(),
+    };
+  }) as (Omit<Analysis, 'createdAt'> & { createdAt: string })[];
 
   return (
     <div className="flex flex-col gap-8">
