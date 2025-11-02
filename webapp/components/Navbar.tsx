@@ -3,14 +3,12 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { auth } from "@/lib/firebase/client";
 import { signOut } from "@/lib/actions/auth.action";
 
 // Accept user as a prop
 export default function Navbar({ user }: { user?: User | null }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const router = useRouter();
 
   const handleSignOut = async () => {
     try {
