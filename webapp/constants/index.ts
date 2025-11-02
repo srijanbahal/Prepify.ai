@@ -204,6 +204,21 @@ export const interviewCovers = [
   "/yahoo.png",
 ];
 
+// This type isn't defined in index.d.ts, so I'm adding a temporary one
+// based on your dummy data to make TypeScript happy.
+// You should replace 'any' with a more specific type if you have one.
+interface Interview {
+  id: string;
+  userId: string;
+  role: string;
+  type: string;
+  techstack: string[];
+  level: string;
+  questions: string[];
+  finalized: boolean;
+  createdAt: Date; // This is the important part
+}
+
 export const dummyInterviews: Interview[] = [
   {
     id: "1",
@@ -214,7 +229,8 @@ export const dummyInterviews: Interview[] = [
     level: "Junior",
     questions: ["What is React?"],
     finalized: false,
-    createdAt: "2024-03-15T10:00:00Z",
+    // FIX: Convert string to Date object
+    createdAt: new Date("2024-03-15T10:00:00Z"),
   },
   {
     id: "2",
@@ -225,6 +241,7 @@ export const dummyInterviews: Interview[] = [
     level: "Senior",
     questions: ["What is Node.js?"],
     finalized: false,
-    createdAt: "2024-03-14T15:30:00Z",
+    // FIX: Convert string to Date object
+    createdAt: new Date("2024-03-14T15:30:00Z"),
   },
 ];

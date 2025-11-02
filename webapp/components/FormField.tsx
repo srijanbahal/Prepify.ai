@@ -14,6 +14,7 @@ interface FormFieldProps<T extends FieldValues> {
   label: string;
   placeholder?: string;
   type?: "text" | "email" | "password";
+  disabled?: boolean; // Add disabled prop
 }
 
 const FormField = <T extends FieldValues>({
@@ -22,6 +23,7 @@ const FormField = <T extends FieldValues>({
   label,
   placeholder,
   type = "text",
+  disabled = false, // Default to false
 }: FormFieldProps<T>) => {
   return (
     <Controller
@@ -36,6 +38,7 @@ const FormField = <T extends FieldValues>({
               type={type}
               placeholder={placeholder}
               {...field}
+              disabled={disabled} // Pass disabled prop
             />
           </FormControl>
           <FormMessage />

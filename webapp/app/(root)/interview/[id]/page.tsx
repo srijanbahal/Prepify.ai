@@ -4,23 +4,25 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { 
-  Phone, 
-  PhoneOff, 
-  Mic, 
-  MicOff, 
-  Volume2, 
+import {
+  Phone,
+  PhoneOff,
+  Mic,
+  MicOff,
+  Volume2,
   VolumeX,
   ArrowLeft,
   Loader2,
-  MessageSquare
+  MessageSquare,
 } from "lucide-react";
 // Import the client-side db instance and functions
 import { db } from "@/lib/firebase/client";
 import { doc, getDoc } from "firebase/firestore";
 
 // Vapi imports
-import useVapi  from "@vapi-ai/web";
+import Vapi from "@vapi-ai/web";
+// We don't need CreateAssistantDTO if we are only overriding
+// import { CreateAssistantDTO } from "@vapi-ai/web/dist/api";
 
 export default function InterviewPage() {
   const params = useParams();
@@ -28,41 +30,105 @@ export default function InterviewPage() {
   const [interview, setInterview] = useState<Interview | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isEnding, setIsEnding] = useState(false);
-  // const { vapiInstance } = useVapi(apiToken);
-  const apiToken = process.env.VAPI_API_TOKEN;
-  
-// Option 3: Provide a default value
-const {
-  isCallActive,
-  isCallEnded,
-  isMuted,
-  isDeafened,
-  startCall,
-  endCall,
-  mute,
-  unmute,
-  deafen,
-  undeafen,
-  toggleCall,
-  vapiInstance,
-} = new useVapi(apiToken || 'default-token');
 
-const call = vapiInstance;
+  const apiToken = process.env.NEXT_PUBLIC_VAPI_PUBLIC_KEY;
 
+  // --- Vapi Class State Management ---
+  const [vapi] = useState(() => new Vapi(apiToken || "default-token"));
+  const [isCallActive, setIsCallActive] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
+  const transcriptRef = useRef<string>("");
+
+  const handleInterviewEnd = async () => {
+    if (isEnding) return;
+    setIsEnding(true);
+
+    try {
+      const finalTranscript = transcriptRef.current || "Interview completed";
+
+      const response = await fetch("/api/feedback", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          interviewId: interview?.id,
+          transcript: finalTranscript,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Failed to analyze feedback");
+      }
+
+      router.push(`/feedback/${result.feedbackId}`);
+    } catch (error) {
+      console.error("Error processing interview end:", error);
+      toast.error("Failed to process interview");
+    }
+  };
+
+  // Set up Vapi event listeners
+  useEffect(() => {
+    if (!vapi) return;
+
+    const onCallStart = () => {
+      console.log("Call started");
+      setIsCallActive(true);
+      transcriptRef.current = "";
+    };
+
+    const onCallEnd = () => {
+      console.log("Call ended");
+      setIsCallActive(false);
+      handleInterviewEnd();
+    };
+
+    const onMessage = (message: any) => {
+      if (message.type === "transcript" && message.transcriptType === "final") {
+        const role = message.role;
+        const text = message.transcript;
+        transcriptRef.current += `${role}: ${text}\n`;
+      }
+    };
+
+    const onError = (error: any) => {
+      console.error("Vapi error:", error);
+      toast.error(`Call error: ${error.message}`);
+      setIsCallActive(false);
+    };
+
+    vapi.on("call-start", onCallStart);
+    vapi.on("call-end", onCallEnd);
+    vapi.on("message", onMessage);
+    vapi.on("error", onError);
+
+    return () => {
+      vapi.off("call-start", onCallStart);
+      vapi.off("call-end", onCallEnd);
+      vapi.off("message", onMessage);
+      vapi.off("error", onError);
+    };
+  }, [vapi, interview, isEnding, router]);
+
+  // Fetch Interview Data
   useEffect(() => {
     const fetchInterview = async () => {
       if (!params.id) return;
       try {
-        // Use the client-side functions to get the document
         const docRef = doc(db, "interviews", params.id as string);
         const docSnap = await getDoc(docRef);
-        
+
         if (docSnap.exists()) {
           const data = docSnap.data();
           setInterview({
             id: docSnap.id,
             ...data,
-            createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date()
+            createdAt: data.createdAt?.toDate
+              ? data.createdAt.toDate()
+              : new Date(),
           } as Interview);
         } else {
           toast.error("Interview not found");
@@ -80,60 +146,30 @@ const call = vapiInstance;
     fetchInterview();
   }, [params.id, router]);
 
-  // Handle interview end
-  useEffect(() => {
-    if (isCallEnded && interview) {
-      handleInterviewEnd();
-    }
-  }, [isCallEnded, interview]);
-
-  const handleInterviewEnd = async () => {
-    setIsEnding(true);
-    
-    try {
-      // Get transcript from Vapi
-      const transcript = call?.transcript || "Interview completed";
-      
-      // Send transcript for feedback analysis
-      const response = await fetch("/api/feedback", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          interviewId: interview?.id,
-          transcript,
-        }),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || "Failed to analyze feedback");
-      }
-
-      // Redirect to feedback page
-      router.push(`/feedback/${result.feedbackId}`);
-    } catch (error) {
-      console.error("Error processing interview end:", error);
-      toast.error("Failed to process interview");
-    } finally {
-      setIsEnding(false);
-    }
-  };
+  // --- Control Functions ---
 
   const handleStartInterview = () => {
     if (interview?.questions) {
-      // Configure Vapi assistant
-      const assistantConfig = {
+      // const VAPI_ASSISTANT_ID = "fca3bf6a-f57d-42bd-9a0a-e5a59c001f60"; // <-- REPLACE if needed
+
+      const VAPI_ASSISTANT_ID = "fbca3bfa-f57d-42bd-9a5a-04d0579a6b25";
+
+      // The callConfig is the override object
+      const callConfig = {
         model: {
-          provider: "openai",
-          model: "gpt-4",
+          // THIS IS THE FIX:
+          // We must provide the *full* model definition,
+          // including provider and model name, marked as 'const'.
+          provider: "openai" as const,
+          model: "gpt-4" as const, // <-- ADDED 'as const' HERE
           messages: [
             {
-              role: "system",
+              role: "system" as const,
               content: `You are a professional interview coach conducting a mock interview. 
-              Here are the questions to ask: ${interview.questions.join(", ")}
+              Your name is Riley.
+              
+              Here are the questions to ask: 
+              - ${interview.questions.join("\n- ")}
               
               Guidelines:
               - Ask one question at a time
@@ -142,23 +178,28 @@ const call = vapiInstance;
               - Ask follow-up questions based on their answers
               - Keep the interview conversational and professional
               - After each answer, ask the next question
-              - If the candidate asks for clarification, provide it briefly
               
-              Start with a warm greeting and then begin with the first question.`
-            }
-          ]
+              Start with a warm greeting and then begin with the first question.`,
+            },
+          ],
         },
-        voice: {
-          provider: "11labs",
-          voiceId: "professional",
-        },
-        firstMessage: `Hello! I'm your interview coach today. I'll be asking you a series of questions to help you practice for your upcoming interview. Are you ready to begin?`,
-        endCallFunctionEnabled: true,
-        endCallMessage: "Thank you for completing the interview! Your feedback will be ready shortly.",
       };
 
-      startCall(assistantConfig);
+      // Start the call using the ID and the override config
+      vapi.start(VAPI_ASSISTANT_ID, callConfig);
     }
+  };
+
+  // Function to manually stop the call
+  const handleStopCall = () => {
+    vapi.stop();
+  };
+
+  // Function to toggle mute
+  const handleToggleMute = () => {
+    const newMutedState = !isMuted;
+    vapi.setMuted(newMutedState);
+    setIsMuted(newMutedState);
   };
 
   const formatDate = (date: Date) => {
@@ -169,6 +210,8 @@ const call = vapiInstance;
       day: "numeric",
     });
   };
+
+  // --- Render Logic (UI) ---
 
   if (isLoading) {
     return (
@@ -241,23 +284,18 @@ const call = vapiInstance;
         {/* Interviewer Card */}
         <div className="card-interviewer">
           <div className="avatar">
-            {isCallActive && (
-              <div className="animate-speak"></div>
-            )}
+            {isCallActive && <div className="animate-speak"></div>}
             <div className="w-16 h-16 bg-primary-200 rounded-full flex items-center justify-center">
               <span className="text-dark-100 font-bold text-xl">AI</span>
             </div>
           </div>
-          <h3 className="text-primary-100 font-semibold">
-            AI Interview Coach
-          </h3>
+          <h3 className="text-primary-100 font-semibold">AI Interview Coach</h3>
           <p className="text-light-100 text-center text-sm">
-            {isCallActive 
-              ? "Listening to your responses..." 
-              : "Ready to conduct your mock interview"
-            }
+            {isCallActive
+              ? "Listening to your responses..."
+              : "Ready to conduct your mock interview"}
           </p>
-          
+
           {/* Interview Questions Preview */}
           {!isCallActive && interview.questions && (
             <div className="mt-4 p-4 bg-dark-200 rounded-lg">
@@ -287,9 +325,11 @@ const call = vapiInstance;
             <div className="flex flex-col items-center gap-6">
               {/* Call Status */}
               <div className="text-center">
-                <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 ${
-                  isCallActive ? 'bg-success-100' : 'bg-primary-200'
-                }`}>
+                <div
+                  className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 ${
+                    isCallActive ? "bg-success-100" : "bg-primary-200"
+                  }`}
+                >
                   {isCallActive ? (
                     <PhoneOff className="w-8 h-8 text-white" />
                   ) : (
@@ -300,10 +340,9 @@ const call = vapiInstance;
                   {isCallActive ? "Interview Active" : "Ready to Start"}
                 </h3>
                 <p className="text-light-100 text-sm">
-                  {isCallActive 
-                    ? "Your mock interview is in progress" 
-                    : "Click start to begin your interview"
-                  }
+                  {isCallActive
+                    ? "Your mock interview is in progress"
+                    : "Click start to begin your interview"}
                 </p>
               </div>
 
@@ -320,36 +359,28 @@ const call = vapiInstance;
                 ) : (
                   <div className="space-y-3">
                     <button
-                      onClick={toggleCall}
+                      onClick={handleStopCall} // Use handleStopCall
                       className="w-full btn-disconnect flex items-center justify-center gap-2 py-3"
                     >
                       <PhoneOff className="w-5 h-5" />
                       End Interview
                     </button>
-                    
+
                     <div className="flex gap-3">
                       <button
-                        onClick={isMuted ? unmute : mute}
+                        onClick={handleToggleMute} // Use handleToggleMute
                         className={`flex-1 py-3 rounded-lg flex items-center justify-center gap-2 ${
-                          isMuted 
-                            ? 'bg-destructive-100/20 text-destructive-100' 
-                            : 'bg-dark-200 text-light-100'
+                          isMuted
+                            ? "bg-destructive-100/20 text-destructive-100"
+                            : "bg-dark-200 text-light-100"
                         }`}
                       >
-                        {isMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-                        {isMuted ? 'Unmute' : 'Mute'}
-                      </button>
-                      
-                      <button
-                        onClick={isDeafened ? undeafen : deafen}
-                        className={`flex-1 py-3 rounded-lg flex items-center justify-center gap-2 ${
-                          isDeafened 
-                            ? 'bg-destructive-100/20 text-destructive-100' 
-                            : 'bg-dark-200 text-light-100'
-                        }`}
-                      >
-                        {isDeafened ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-                        {isDeafened ? 'Unmute AI' : 'Mute AI'}
+                        {isMuted ? (
+                          <MicOff className="w-4 h-4" />
+                        ) : (
+                          <Mic className="w-4 h-4" />
+                        )}
+                        {isMuted ? "Unmute" : "Mute"}
                       </button>
                     </div>
                   </div>
@@ -359,15 +390,12 @@ const call = vapiInstance;
               {/* Instructions */}
               <div className="text-center text-sm text-light-100">
                 <p className="mb-2">
-                  {isCallActive 
+                  {isCallActive
                     ? "Speak naturally and answer the questions to the best of your ability."
-                    : "Make sure you're in a quiet environment with a good internet connection."
-                  }
+                    : "Make sure you're in a quiet environment with a good internet connection."}
                 </p>
                 {!isCallActive && (
-                  <p>
-                    The interview will be recorded for feedback analysis.
-                  </p>
+                  <p>The interview will be recorded for feedback analysis.</p>
                 )}
               </div>
             </div>

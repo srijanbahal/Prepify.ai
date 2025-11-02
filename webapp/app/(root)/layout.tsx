@@ -15,7 +15,8 @@ export default async function RootLayout({
 
   return (
     <div className="min-h-screen bg-background">
-      <Navbar />
+      {/* Pass the user object to the Navbar */}
+      <Navbar user={user} />
       <main className="root-layout">
         {children}
       </main>

@@ -24,7 +24,7 @@ export default function AnalysisCard({ analysis }: AnalysisCardProps) {
     return "text-destructive-100";
   };
 
-  const getStatusBadge = (analysis: Analysis) => {
+  const getStatusBadge = (analysis: Omit<Analysis, 'createdAt'> & { createdAt: string }) => {
     return (
       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-success-100/20 text-success-100">
         Analyzed
@@ -40,7 +40,7 @@ export default function AnalysisCard({ analysis }: AnalysisCardProps) {
             <Calendar className="w-4 h-4" />
             <span className="text-sm">{formatDate(analysis.createdAt)}</span>
           </div>
-          {getStatusBadge(analysis as Analysis)}
+          {getStatusBadge(analysis)}
         </div>
 
         <div className="mb-4">

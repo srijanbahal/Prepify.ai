@@ -2,6 +2,8 @@
 
 import { auth, db } from "../firebase/admin";
 import { cookies } from "next/headers";
+// import { AuthError } from "firebase-admin/auth";
+import { revalidatePath } from "next/cache"; // 1. IMPORT revalidatePath
 
 // Session duration (1 week)
 const SESSION_DURATION = 60 * 60 * 24 * 7;
@@ -52,17 +54,10 @@ export async function signUp(params: SignUpParams) {
   } catch (error: any) {
     console.error("Error creating user:", error);
 
-    // Handle Firebase specific errors
-    if (error.code === "auth/email-already-exists") {
-      return {
-        success: false,
-        message: "This email is already in use",
-      };
-    }
-
+    // This is a server-side error, not a client-side one
     return {
       success: false,
-      message: "Failed to create account. Please try again.",
+      message: "Failed to create account in database. Please try again.",
     };
   }
 }
@@ -79,8 +74,18 @@ export async function signIn(params: SignInParams) {
       };
 
     await setSessionCookie(idToken);
+    
+    // 2. ADD THIS LINE
+    // This tells Next.js to purge the cache for the root page.
+    revalidatePath("/"); 
+    
+    // Explicitly return success
+    return {
+      success: true,
+    };
+
   } catch (error: any) {
-    console.log("");
+    console.error("Error signing in user:", error); // Log the actual error
 
     return {
       success: false,
@@ -92,8 +97,10 @@ export async function signIn(params: SignInParams) {
 // Sign out user by clearing the session cookie
 export async function signOut() {
   const cookieStore = await cookies();
-
   cookieStore.delete("session");
+  
+  // Also revalidate the root path on sign-out
+  revalidatePath("/"); 
 }
 
 // Get current user from session cookie
