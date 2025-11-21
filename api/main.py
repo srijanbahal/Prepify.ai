@@ -57,9 +57,10 @@ async def health_check():
     return {"status": "healthy", "service": "prepify-api"}
 
 # Analysis endpoint
-@app.post("/analyze", response_model=AnalysisResponse)
-@rate_limit("5/day", per_user=True)
-@rate_limit("100/hour", global_limit=True)
+@app.post("/analyze", response_model=AnalysisResponse, dependencies=[
+    Depends(rate_limit("5/day", per_user=True)),
+    Depends(rate_limit("100/hour", global_limit=True))
+])
 async def analyze(
     request: AnalysisRequest,
     user_id: str = Depends(verify_firebase_token)

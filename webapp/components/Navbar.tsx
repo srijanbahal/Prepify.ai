@@ -3,86 +3,46 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useState } from "react";
-import { auth } from "@/lib/firebase/client";
-import { signOut } from "@/lib/actions/auth.action";
+import { Sparkles, TrendingUp } from "lucide-react"; // Import icons
 
-// Accept user as a prop
-export default function Navbar({ user }: { user?: User | null }) {
+// This Navbar is now only for the logged-out state (e.g., Landing Page)
+// The `user` prop is no longer needed.
+export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-
-  const handleSignOut = async () => {
-    try {
-      await auth.signOut();
-      await signOut();
-      // Use window.location.href for a full reload to clear all server state
-      window.location.href = "/sign-in";
-    } catch (error) {
-      console.error("Error signing out:", error);
-    }
-  };
 
   return (
     <nav className="flex items-center justify-between p-6 bg-card/50 backdrop-blur-sm border-b border-border">
+      {/* Logo */}
       <Link href="/" className="flex items-center gap-2">
-        <Image src="/next.svg" alt="Prepify" height={32} width={32} />
-        <span className="text-2xl font-bold text-primary-100">Prepify</span>
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-purple-600">
+          <TrendingUp className="h-5 w-5 text-white" />
+        </div>
+        <span className="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+          Prepify
+        </span>
       </Link>
 
-      {/* Show different controls based on user state */}
-      {user ? (
-        // LOGGED-IN STATE
-        <div className="hidden md:flex items-center gap-6">
-          <Link
-            href="/"
-            className="text-light-100 hover:text-primary-100 transition-colors"
-          >
-            Dashboard
-          </Link>
-          <Link href="/analyze" className="btn-primary">
-            New Analysis
-          </Link>
-
-          <div className="relative">
-            <button
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="flex items-center gap-2 text-light-100 hover:text-primary-100 transition-colors"
-            >
-              <div className="w-8 h-8 bg-primary-200 rounded-full flex items-center justify-center">
-                <span className="text-dark-100 font-bold text-sm">
-                  {user.name ? user.name.charAt(0).toUpperCase() : "U"}
-                </span>
-              </div>
-              <span>{user.name ? user.name.split(" ")[0] : "Account"}</span>
-            </button>
-
-            {isMenuOpen && (
-              <div className="absolute right-0 mt-2 w-48 bg-card border border-border rounded-lg shadow-lg py-2">
-                <button
-                  onClick={handleSignOut}
-                  className="w-full text-left px-4 py-2 text-light-100 hover:bg-accent hover:text-accent-foreground transition-colors"
-                >
-                  Sign Out
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      ) : (
-        // LOGGED-OUT STATE
-        <div className="hidden md:flex items-center gap-4">
-          <Link href="/sign-in" className="text-primary-100 hover:text-primary-200">
-            Sign In
-          </Link>
-          <Link href="/sign-up" className="btn-primary">
-            Sign Up
-          </Link>
-        </div>
-      )}
+      {/* LOGGED-OUT STATE */}
+      <div className="hidden md:flex items-center gap-4">
+        <Link
+          href="/sign-in"
+          className="text-gray-300 hover:text-white transition-colors"
+        >
+          Sign In
+        </Link>
+        <Link
+          href="/sign-up"
+          className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-blue-500 to-purple-600 px-4 py-2 text-sm font-medium text-white hover:shadow-lg hover:shadow-purple-500/25 transition-all"
+        >
+          <Sparkles className="h-4 w-4" />
+          Sign Up
+        </Link>
+      </div>
 
       {/* Mobile menu button */}
       <button
         onClick={() => setIsMenuOpen(!isMenuOpen)}
-        className="md:hidden p-2 text-light-100 hover:text-primary-100 transition-colors"
+        className="md:hidden p-2 text-gray-300 hover:text-white transition-colors"
       >
         <svg
           className="w-6 h-6"
@@ -103,47 +63,21 @@ export default function Navbar({ user }: { user?: User | null }) {
       {isMenuOpen && (
         <div className="md:hidden absolute top-full left-0 right-0 bg-card border-b border-border shadow-lg py-4">
           <div className="flex flex-col gap-4 px-6">
-            {user ? (
-              <>
-                <Link
-                  href="/"
-                  className="text-light-100 hover:text-primary-100 transition-colors"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  Dashboard
-                </Link>
-                <Link
-                  href="/analyze"
-                  className="btn-primary w-full text-center"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  New Analysis
-                </Link>
-                <button
-                  onClick={handleSignOut}
-                  className="text-left text-light-100 hover:text-primary-100 transition-colors"
-                >
-                  Sign Out
-                </button>
-              </>
-            ) : (
-              <>
-                <Link
-                  href="/sign-in"
-                  className="text-light-100 hover:text-primary-100 transition-colors"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  Sign In
-                </Link>
-                <Link
-                  href="/sign-up"
-                  className="btn-primary w-full text-center"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  Sign Up
-                </Link>
-              </>
-            )}
+            <Link
+              href="/sign-in"
+              className="text-gray-300 hover:text-white transition-colors"
+              onClick={() => setIsMenuOpen(false)}
+            >
+              Sign In
+            </Link>
+            <Link
+              href="/sign-up"
+              className="flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-blue-500 to-purple-600 px-4 py-2 text-sm font-medium text-white hover:shadow-lg hover:shadow-purple-500/25 transition-all w-full"
+              onClick={() => setIsMenuOpen(false)}
+            >
+              <Sparkles className="h-4 w-4" />
+              Sign Up
+            </Link>
           </div>
         </div>
       )}

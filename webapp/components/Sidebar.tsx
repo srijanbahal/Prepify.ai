@@ -10,24 +10,25 @@ import {
   HelpCircle,
   Sparkles,
   TrendingUp,
-  User
+  User as UserIcon, // 1. Renamed the imported icon to "UserIcon"
 } from "lucide-react";
 
 interface SidebarProps {
-  user: User;
+  user: User; // 2. Now "User" correctly refers to your global type
 }
 
+// 3. Updated navigation links
 const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "New Analysis", href: "/analyze", icon: Sparkles },
-  { name: "Analytics", href: "#", icon: BarChart3 },
-  { name: "Mock Interviews", href: "#", icon: MessageSquare },
-  { name: "My Profile", href: "#", icon: User },
+  { name: "Analytics", href: "/analytics", icon: BarChart3 },
+  { name: "Mock Interviews", href: "/interviews", icon: MessageSquare },
+  { name: "My Profile", href: "/profile", icon: UserIcon }, // 4. Use the aliased "UserIcon"
 ];
 
 const secondaryNavigation = [
-  { name: "Settings", href: "#", icon: Settings },
-  { name: "Help & Support", href: "#", icon: HelpCircle },
+  { name: "Settings", href: "/settings", icon: Settings },
+  { name: "Help & Support", href: "/support", icon: HelpCircle },
 ];
 
 export default function Sidebar({ user }: SidebarProps) {
@@ -47,24 +48,14 @@ export default function Sidebar({ user }: SidebarProps) {
         </Link>
       </div>
 
-      {/* User Info */}
-      <div className="border-b border-border/40 p-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-purple-600 text-white font-semibold">
-            {user.name.charAt(0).toUpperCase()}
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-white truncate">{user.name}</p>
-            <p className="text-xs text-gray-400 truncate">{user.email}</p>
-          </div>
-        </div>
-      </div>
-
       {/* Navigation */}
-      <nav className="flex-1 space-y-1 p-4">
+      <nav className="flex-1 space-y-1 p-4 mt-4">
         <div className="space-y-1">
           {navigation.map((item) => {
-            const isActive = pathname === item.href;
+            const isActive =
+              item.href === "/"
+                ? pathname === item.href
+                : pathname.startsWith(item.href);
             return (
               <Link
                 key={item.name}
@@ -87,7 +78,7 @@ export default function Sidebar({ user }: SidebarProps) {
             General
           </p>
           {secondaryNavigation.map((item) => {
-            const isActive = pathname === item.href;
+            const isActive = pathname.startsWith(item.href);
             return (
               <Link
                 key={item.name}
@@ -111,7 +102,9 @@ export default function Sidebar({ user }: SidebarProps) {
         <div className="rounded-xl bg-gradient-to-br from-blue-500/10 to-purple-600/10 p-4 border border-blue-500/20">
           <div className="flex items-center gap-2 mb-2">
             <Sparkles className="h-4 w-4 text-blue-400" />
-            <span className="text-sm font-semibold text-white">Upgrade to Pro</span>
+            <span className="text-sm font-semibold text-white">
+              Upgrade to Pro
+            </span>
           </div>
           <p className="text-xs text-gray-400 mb-3">
             Unlock unlimited interviews and advanced analytics

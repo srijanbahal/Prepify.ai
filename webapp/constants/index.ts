@@ -245,3 +245,13 @@ export const dummyInterviews: Interview[] = [
     createdAt: new Date("2024-03-14T15:30:00Z"),
   },
 ];
+
+
+// // --- ADDED THIS EXPORT ---
+// // Export the global User type if you want to import it explicitly
+// export type { User } from "@/types/index.d";
+// // -----
+
+// export const User: UserType[]= [
+
+// ]

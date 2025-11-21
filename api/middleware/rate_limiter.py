@@ -14,6 +14,10 @@ def initialize_firebase():
     """Initialize Firebase Admin SDK"""
     if not firebase_admin._apps:
         try:
+            if not FIREBASE_PRIVATE_KEY:
+                logger.warning("FIREBASE_PRIVATE_KEY not found. Firebase Admin SDK not initialized.")
+                return
+
             # Create credentials from environment variables
             cred = credentials.Certificate({
                 "type": "service_account",
