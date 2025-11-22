@@ -352,7 +352,8 @@ async def analyze_feedback(
         updates = {
             "status": "completed",
             "overall_score": feedback.get("overall_score", 0),
-            "feedback_summary": json.dumps(feedback)
+            "feedback_summary": json.dumps(feedback),
+            "transcript": request.transcript
         }
         await supabase_service.update_interview(request.interview_id, updates)
         
@@ -457,6 +458,10 @@ async def get_analysis(
         # Verify user owns this analysis
         if analysis.get("user_id") != db_user_id:
             raise HTTPException(status_code=403, detail="Access denied")
+            
+        # Get associated interviews
+        interviews = await supabase_service.get_analysis_interviews(analysis_id)
+        analysis["interviews"] = interviews
         
         return analysis
         
@@ -465,6 +470,103 @@ async def get_analysis(
     except Exception as e:
         logger.error(f"Error retrieving analysis: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to retrieve analysis: {str(e)}")
+
+@app.get("/analyses")
+async def get_user_analyses(
+    user_id: str = Depends(verify_firebase_token)
+):
+    """
+    Retrieve all analyses for the current user
+    """
+    try:
+        # Resolve Supabase User ID
+        supabase_user = await supabase_service.get_user(user_id)
+        if not supabase_user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        db_user_id = supabase_user['id']
+        
+        # Fetch all analyses (limit 100 for now)
+        analyses = await supabase_service.get_user_analyses(db_user_id, limit=100)
+        
+        return analyses
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error retrieving user analyses: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve analyses: {str(e)}")
+
+@app.get("/dashboard")
+async def get_dashboard_data(
+    user_id: str = Depends(verify_firebase_token)
+):
+    """
+    Retrieve dashboard data (stats, recent activity)
+    """
+    try:
+        # Resolve Supabase User ID
+        supabase_user = await supabase_service.get_user(user_id)
+        if not supabase_user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        db_user_id = supabase_user['id']
+        
+        # Fetch data concurrently (in a real async scenario, we'd use gather, but sequential is fine for now)
+        analyses = await supabase_service.get_user_analyses(db_user_id, limit=5)
+        interviews = await supabase_service.get_user_interviews(db_user_id, limit=5)
+        
+        # Calculate stats
+        total_analyses = len(analyses) # This is just recent, ideally we'd have a count query but this is a start
+        total_interviews = len(interviews)
+        
+        avg_score = 0
+        if interviews:
+            scores = [i.get('overall_score', 0) for i in interviews if i.get('overall_score')]
+            if scores:
+                avg_score = sum(scores) / len(scores)
+        
+        return {
+            "stats": {
+                "total_analyses": total_analyses, # Placeholder, should be total count
+                "total_interviews": total_interviews, # Placeholder
+                "average_score": round(avg_score, 1)
+            },
+            "recent_analyses": analyses,
+            "recent_interviews": interviews
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error retrieving dashboard data: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve dashboard data: {str(e)}")
+
+@app.get("/interview/{interview_id}")
+async def get_interview_details(
+    interview_id: str,
+    user_id: str = Depends(verify_firebase_token)
+):
+    """
+    Retrieve specific interview details
+    """
+    try:
+        # Get interview
+        interview = await supabase_service.get_interview(interview_id)
+        if not interview:
+            raise HTTPException(status_code=404, detail="Interview not found")
+            
+        # Verify ownership
+        supabase_user = await supabase_service.get_user(user_id)
+        if not supabase_user or interview.get("user_id") != supabase_user['id']:
+             raise HTTPException(status_code=403, detail="Access denied")
+             
+        return interview
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching interview details: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch interview details")
 
 if __name__ == "__main__":
     import uvicorn

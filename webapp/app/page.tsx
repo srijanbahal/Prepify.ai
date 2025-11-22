@@ -1,54 +1,76 @@
-import { getCurrentUser } from "@/lib/actions/auth.action";
-import { db } from "@/lib/firebase/admin";
-import LandingPage from "@/components/landing";
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { auth } from "@/lib/firebase/client";
+import { onAuthStateChanged } from "firebase/auth";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import DashboardOverview from "@/components/dashboard/Overview";
+import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
-export const dynamic = "force-dynamic";
+export default function Page() {
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<any>(null);
+  const [dashboardData, setDashboardData] = useState<any>(null);
 
-async function getAnalyses(userId: string) {
-  try {
-    const analysesRef = db
-      .collection("analyses")
-      .where("userId", "==", userId)
-      .orderBy("createdAt", "desc");
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      if (!currentUser) {
+        router.push("/sign-in");
+        return;
+      }
 
-    const snapshot = await analysesRef.get();
+      setUser({
+        id: currentUser.uid,
+        name: currentUser.displayName || "User",
+        email: currentUser.email,
+        image: currentUser.photoURL,
+      });
 
-    return snapshot.docs.map((doc) => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        ...data,
-        createdAt: data.createdAt?.toDate
-          ? data.createdAt.toDate().toISOString()
-          : new Date().toISOString(),
-      };
+      try {
+        const idToken = await currentUser.getIdToken();
+        const response = await fetch("http://localhost:8000/dashboard", {
+          headers: {
+            "Authorization": `Bearer ${idToken}`,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch dashboard data");
+        }
+
+        const data = await response.json();
+        setDashboardData(data);
+      } catch (error) {
+        console.error("Error fetching dashboard data:", error);
+        toast.error("Failed to load dashboard data");
+      } finally {
+        setLoading(false);
+      }
     });
-  } catch (error) {
-    console.error("Error fetching analyses:", error);
-    return [];
+
+    return () => unsubscribe();
+  }, [router]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-black">
+        <Loader2 className="w-8 h-8 animate-spin text-white" />
+      </div>
+    );
   }
-}
 
-export default async function Page() {
-  const user = await getCurrentUser();
-
-  if (!user) {
-    return <LandingPage />;
-  }
-
-  const analyses = await getAnalyses(user.id);
-
-  const userData = {
-    id: user.id,
-    name: user.name,
-    email: user.email,
-  };
+  if (!user) return null;
 
   return (
-    <DashboardLayout user={userData}>
-      <DashboardOverview user={userData} analyses={analyses} />
+    <DashboardLayout user={user}>
+      <DashboardOverview 
+        user={user} 
+        analyses={dashboardData?.recent_analyses || []} 
+        stats={dashboardData?.stats}
+      />
     </DashboardLayout>
   );
 }

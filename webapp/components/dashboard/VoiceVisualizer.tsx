@@ -6,13 +6,21 @@ import { motion } from "framer-motion";
 interface VoiceVisualizerProps {
   isActive: boolean;
   audioLevel?: number;
+  color?: string;
+  glowColor?: string;
+  barCount?: number;
 }
 
-export default function VoiceVisualizer({ isActive, audioLevel = 0 }: VoiceVisualizerProps) {
+export default function VoiceVisualizer({ 
+  isActive, 
+  audioLevel = 0,
+  color = "rgba(255, 255, 255, 0.9)",
+  glowColor = "rgba(255, 255, 255, 0.2)",
+  barCount = 24
+}: VoiceVisualizerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [bars] = useState<number>(24);
   const animationRef = useRef<number | undefined>(undefined);
-  const barsDataRef = useRef<number[]>(new Array(24).fill(0.2));
+  const barsDataRef = useRef<number[]>(new Array(barCount).fill(0.2));
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -25,14 +33,13 @@ export default function VoiceVisualizer({ isActive, audioLevel = 0 }: VoiceVisua
     const centerY = canvas.height / 2;
     const radius = 80;
     const barWidth = 3;
-    const barGap = 2;
 
     const draw = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       // Update bars based on activity
       if (isActive) {
-        barsDataRef.current = barsDataRef.current.map((bar, i) => {
+        barsDataRef.current = barsDataRef.current.map((bar) => {
           const target = 0.3 + (audioLevel || Math.random() * 0.7);
           return bar + (target - bar) * 0.2;
         });
@@ -43,8 +50,8 @@ export default function VoiceVisualizer({ isActive, audioLevel = 0 }: VoiceVisua
       }
 
       // Draw bars
-      for (let i = 0; i < bars; i++) {
-        const angle = (i / bars) * Math.PI * 2 - Math.PI / 2;
+      for (let i = 0; i < barCount; i++) {
+        const angle = (i / barCount) * Math.PI * 2 - Math.PI / 2;
         const barHeight = barsDataRef.current[i] * 60;
 
         const x1 = centerX + Math.cos(angle) * radius;
@@ -55,8 +62,8 @@ export default function VoiceVisualizer({ isActive, audioLevel = 0 }: VoiceVisua
         // Gradient
         const gradient = ctx.createLinearGradient(x1, y1, x2, y2);
         if (isActive) {
-          gradient.addColorStop(0, "rgba(255, 255, 255, 0.2)");
-          gradient.addColorStop(1, "rgba(255, 255, 255, 0.9)");
+          gradient.addColorStop(0, glowColor);
+          gradient.addColorStop(1, color);
         } else {
           gradient.addColorStop(0, "rgba(255, 255, 255, 0.1)");
           gradient.addColorStop(1, "rgba(255, 255, 255, 0.3)");
@@ -82,7 +89,7 @@ export default function VoiceVisualizer({ isActive, audioLevel = 0 }: VoiceVisua
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [isActive, audioLevel, bars]);
+  }, [isActive, audioLevel, barCount, color, glowColor]);
 
   return (
     <div className="relative flex items-center justify-center">
@@ -97,7 +104,7 @@ export default function VoiceVisualizer({ isActive, audioLevel = 0 }: VoiceVisua
             isActive ? "opacity-30" : "opacity-10"
           }`}
           style={{
-            background: "radial-gradient(circle, rgba(255,255,255,0.2) 0%, transparent 70%)",
+            background: `radial-gradient(circle, ${glowColor} 0%, transparent 70%)`,
           }}
         />
 
@@ -117,11 +124,13 @@ export default function VoiceVisualizer({ isActive, audioLevel = 0 }: VoiceVisua
                 ? "border-white bg-white/10 scale-110"
                 : "border-white/30 bg-white/5"
             }`}
+            style={{ borderColor: isActive ? color : undefined }}
           >
             <div
               className={`w-4 h-4 rounded-full transition-all duration-300 ${
-                isActive ? "bg-white animate-pulse" : "bg-white/50"
+                isActive ? "animate-pulse" : "opacity-50"
               }`}
+              style={{ backgroundColor: isActive ? color : "rgba(255,255,255,0.5)" }}
             />
           </div>
         </div>

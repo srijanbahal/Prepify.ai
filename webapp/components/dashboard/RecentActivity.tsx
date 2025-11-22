@@ -11,8 +11,8 @@ interface RecentActivityProps {
 
 export default function RecentActivity({ analyses }: RecentActivityProps) {
   return (
-    <div className="rounded-3xl bg-white/5 border border-white/10 overflow-hidden">
-      <div className="p-6 border-b border-white/10 flex items-center justify-between">
+    <div className="noir-card overflow-hidden rounded-3xl">
+      <div className="p-6 border-b border-white/5 flex items-center justify-between">
         <h2 className="text-lg font-bold text-white">Recent Activity</h2>
         <Link href="/analyses" className="text-sm text-zinc-400 hover:text-white transition-colors flex items-center gap-1">
           View All <ChevronRight className="w-4 h-4" />
@@ -22,7 +22,7 @@ export default function RecentActivity({ analyses }: RecentActivityProps) {
       <div className="p-2">
         {analyses.length === 0 ? (
           <div className="py-12 text-center">
-            <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-4">
+            <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-4 border border-white/5">
               <FileText className="w-8 h-8 text-zinc-600" />
             </div>
             <h3 className="text-white font-medium mb-1">No activity yet</h3>
@@ -46,10 +46,10 @@ export default function RecentActivity({ analyses }: RecentActivityProps) {
                 transition={{ delay: index * 0.05 }}
               >
                 <Link
-                  href={`/analysis/${analysis.id}`}
+                  href={`/report/${analysis.id}`}
                   className="flex items-center gap-4 p-4 rounded-xl hover:bg-white/5 transition-colors group"
                 >
-                  <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-400 group-hover:bg-blue-500/20 transition-colors">
+                  <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-400 group-hover:bg-blue-500/20 transition-colors border border-blue-500/10">
                     <span className="text-sm font-bold">{Math.round(analysis.match_score || 0)}%</span>
                   </div>
                   

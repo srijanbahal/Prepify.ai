@@ -116,4 +116,31 @@ class SupabaseService:
             logger.error(f"Error fetching questions: {e}")
             return []
 
+    async def get_user_analyses(self, user_id: str, limit: int = 5) -> List[Dict[str, Any]]:
+        if not self.client: return []
+        try:
+            response = self.client.table("analyses").select("*").eq("user_id", user_id).order("created_at", desc=True).limit(limit).execute()
+            return response.data or []
+        except Exception as e:
+            logger.error(f"Error fetching user analyses: {e}")
+            return []
+
+    async def get_user_interviews(self, user_id: str, limit: int = 5) -> List[Dict[str, Any]]:
+        if not self.client: return []
+        try:
+            response = self.client.table("interviews").select("*").eq("user_id", user_id).order("created_at", desc=True).limit(limit).execute()
+            return response.data or []
+        except Exception as e:
+            logger.error(f"Error fetching user interviews: {e}")
+            return []
+
+    async def get_analysis_interviews(self, analysis_id: str) -> List[Dict[str, Any]]:
+        if not self.client: return []
+        try:
+            response = self.client.table("interviews").select("*").eq("analysis_id", analysis_id).order("created_at", desc=True).execute()
+            return response.data or []
+        except Exception as e:
+            logger.error(f"Error fetching analysis interviews: {e}")
+            return []
+
 supabase_service = SupabaseService()
