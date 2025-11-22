@@ -1,9 +1,10 @@
-from crewai import Agent, Task, Crew, Process
+from crewai import Agent, Task
 from crewai.tools import BaseTool
 from typing import Dict, Any
 import logging
 from services.gemini_service import gemini_service
-from services.hf_service import hf_service
+from config import GROQ_API_KEY, GROQ_MODEL
+from langchain_groq import ChatGroq
 
 logger = logging.getLogger(__name__)
 
@@ -26,30 +27,17 @@ class JobAnalysisTool(BaseTool):
             logger.error(f"Error in job analysis tool: {e}")
             return f"Error analyzing job description: {e}"
 
-class CompanyCultureTool(BaseTool):
-    name: str = "company_culture_analyzer"
-    description: str = "Analyzes company culture and interview patterns using specialized models"
-
-    def _run(self, company_name: str, job_description: str) -> str:
-        """Run company culture analysis"""
-        try:
-            import asyncio
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                result = loop.run_until_complete(hf_service.analyze_company_culture(company_name, job_description))
-                return str(result)
-            finally:
-                loop.close()
-        except Exception as e:
-            logger.error(f"Error in company culture analysis tool: {e}")
-            return f"Error analyzing company culture: {e}"
-
 def create_job_agent() -> Agent:
     """Create the job analysis agent"""
     
     job_tool = JobAnalysisTool()
-    culture_tool = CompanyCultureTool()
+    
+    # Create Groq LLM using ChatGroq
+    llm = ChatGroq(
+        model=GROQ_MODEL,
+        api_key=GROQ_API_KEY,
+        temperature=0.7
+    )
     
     agent = Agent(
         role="Job Description & Company Culture Analyst",
@@ -58,7 +46,8 @@ def create_job_agent() -> Agent:
         and understanding company cultures. You have worked with hundreds of companies across different industries 
         and have deep knowledge of what different companies look for in candidates. You excel at identifying 
         hidden requirements, understanding company values, and predicting interview patterns.""",
-        tools=[job_tool, culture_tool],
+        tools=[job_tool],
+        llm=llm,
         verbose=True,
         allow_delegation=False,
         max_iter=3
@@ -86,7 +75,7 @@ def create_job_task(job_description: str, company_name: str = "Unknown Company")
         5. Position title and company information extraction
         6. Technical requirements breakdown
         
-        Use both the job_analyzer and company_culture_analyzer tools to get comprehensive insights.
+        Use the job_analyzer tool to get comprehensive insights.
         """,
         agent=create_job_agent(),
         expected_output="""A comprehensive JSON object containing:

@@ -11,3 +11,5 @@ requests==2.32.3
 firebase-admin==6.5.0
 slowapi==0.1.9
 python-multipart==0.0.12
+supabase==2.3.0
+websockets>=13.0

@@ -1,18 +1,35 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/actions/auth.action";
-import { db } from "@/lib/firebase/admin";
-import { FieldValue } from "firebase-admin/firestore";
+import { auth } from "@/lib/firebase/admin";
 
-export async function POST(request: NextRequest) {
+export async function POST(req: NextRequest) {
   try {
-    // Check authentication
-    const user = await getCurrentUser();
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    // Get Firebase ID token from Authorization header
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return NextResponse.json(
+        { error: "Unauthorized: No token provided" },
+        { status: 401 }
+      );
     }
 
+    const idToken = authHeader.split("Bearer ")[1];
+
+    // Verify the token
+    let decodedToken;
+    try {
+      decodedToken = await auth.verifyIdToken(idToken);
+    } catch (error) {
+      return NextResponse.json(
+        { error: "Unauthorized: Invalid token" },
+        { status: 401 }
+      );
+    }
+
+    const userId = decodedToken.uid;
+
     // Parse request body
-    const { resume, jobDesc, github, linkedin } = await request.json();
+    const body = await req.json();
+    const { resume, jobDesc, github, linkedin } = body;
 
     if (!resume || !jobDesc) {
       return NextResponse.json(
@@ -21,54 +38,46 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // TODO: Call Python backend API
-    // For now, we'll create a mock response
-    const mockAnalysis = {
-      match_score: Math.floor(Math.random() * 40) + 60, // 60-100%
-      skill_gaps: [
-        "Advanced Python frameworks (Django/FastAPI)",
-        "Cloud deployment (AWS/Azure)",
-        "System design principles"
-      ],
-      strengths: [
-        "Strong programming fundamentals",
-        "Good problem-solving skills",
-        "Experience with version control"
-      ],
-      recommendations: [
-        "Practice system design questions",
-        "Learn a cloud platform (AWS recommended)",
-        "Build a portfolio project with modern frameworks"
-      ],
-      interview_focus_areas: [
-        "Technical coding problems",
-        "System architecture discussions",
-        "Experience with modern frameworks",
-        "Problem-solving approach"
-      ]
-    };
-
-    // Save to Firestore
-    const analysisRef = await db.collection("analyses").add({
-      userId: user.id,
-      resume_text: resume,
-      job_description: jobDesc,
-      social_profiles: {
-        github: github || null,
-        linkedin: linkedin || null,
+    // Forward to FastAPI backend
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+    const response = await fetch(`${backendUrl}/analyze`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${idToken}`,
       },
-      ...mockAnalysis,
-      createdAt: FieldValue.serverTimestamp(),
+      body: JSON.stringify({
+        resume_text: resume,
+        job_description: jobDesc,
+        social_profiles: {
+          github: github || "",
+          linkedin: linkedin || "",
+        },
+      }),
     });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return NextResponse.json(
+        { error: data.detail || "Analysis failed" },
+        { status: response.status }
+      );
+    }
 
     return NextResponse.json({
-      analysisId: analysisRef.id,
-      ...mockAnalysis,
+      analysisId: data.analysis_id,
+      matchScore: data.match_score,
+      skillGaps: data.skill_gaps,
+      strengths: data.strengths,
+      recommendations: data.recommendations,
+      interviewFocusAreas: data.interview_focus_areas,
+      summary: data.summary,
     });
   } catch (error) {
-    console.error("Error creating analysis:", error);
+    console.error("Error in analysis route:", error);
     return NextResponse.json(
-      { error: "Failed to create analysis" },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }

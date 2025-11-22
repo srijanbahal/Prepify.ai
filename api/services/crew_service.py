@@ -3,6 +3,7 @@ import logging
 from typing import Dict, Any
 from datetime import datetime
 import uuid
+import os
 from crewai import Crew, Process
 
 from agents.resume_agent import create_resume_task
@@ -11,6 +12,11 @@ from agents.social_agent import create_social_task
 from agents.synthesis_agent import create_synthesis_task
 from services.redis_service import redis_service
 from models import AnalysisResult
+from config import GROQ_API_KEY
+
+# Set Groq API key as environment variable for LiteLLM
+if GROQ_API_KEY:
+    os.environ["GROQ_API_KEY"] = GROQ_API_KEY
 
 logger = logging.getLogger(__name__)
 
@@ -40,14 +46,15 @@ class CrewService:
             job_task = create_job_task(job_description)
             social_task = create_social_task(github_url, linkedin_url)
             
-            # Run first phase: parallel analysis with 3 agents
-            logger.info(f"Starting parallel analysis for user {user_id}")
+            # Run first phase: sequential analysis with 3 agents
+            # Note: Changed from parallel to sequential due to CrewAI parallel execution issues
+            logger.info(f"Starting sequential analysis for user {user_id}")
             
             crew = Crew(
                 agents=[resume_task.agent, job_task.agent, social_task.agent],
                 tasks=[resume_task, job_task, social_task],
-                process=Process.parallel,
-                verbose=True
+                process=Process.sequential,
+                verbose=True  # Set to 2 for maximum verbosity
             )
             
             # Execute parallel analysis
@@ -113,7 +120,9 @@ class CrewService:
                 return self._parse_crew_output(result)
                 
         except Exception as e:
+            import traceback
             logger.error(f"Error executing crew: {e}")
+            logger.error(f"Full traceback: {traceback.format_exc()}")
             raise
 
     def _parse_crew_output(self, output) -> Dict[str, Any]:

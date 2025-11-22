@@ -3,7 +3,7 @@
 import { auth, db } from "../firebase/admin";
 import { cookies } from "next/headers";
 // import { AuthError } from "firebase-admin/auth";
-import { revalidatePath } from "next/cache"; // 1. IMPORT revalidatePath
+import { revalidatePath } from "next/cache";
 
 // Session duration (1 week)
 const SESSION_DURATION = 60 * 60 * 24 * 7;
@@ -73,19 +73,27 @@ export async function signIn(params: SignInParams) {
         message: "User does not exist. Create an account.",
       };
 
+    // Ensure user exists in Firestore (Sync)
+    const userDoc = await db.collection("users").doc(userRecord.uid).get();
+    if (!userDoc.exists) {
+      console.log(`[Auth] User ${userRecord.uid} missing in Firestore. Creating...`);
+      await db.collection("users").doc(userRecord.uid).set({
+        name: userRecord.displayName || email.split("@")[0],
+        email: userRecord.email,
+        createdAt: new Date(),
+      });
+    }
+
     await setSessionCookie(idToken);
     
-    // 2. ADD THIS LINE
-    // This tells Next.js to purge the cache for the root page.
     revalidatePath("/"); 
     
-    // Explicitly return success
     return {
       success: true,
     };
 
   } catch (error: any) {
-    console.error("Error signing in user:", error); // Log the actual error
+    console.error("Error signing in user:", error);
 
     return {
       success: false,

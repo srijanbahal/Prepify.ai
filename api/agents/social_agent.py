@@ -1,8 +1,10 @@
-from crewai import Agent, Task, Crew, Process
+from crewai import Agent, Task
 from crewai.tools import BaseTool
 from typing import Dict, Any
 import logging
 from services.gemini_service import gemini_service
+from config import GROQ_API_KEY, GROQ_MODEL
+from langchain_groq import ChatGroq
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +32,13 @@ def create_social_agent() -> Agent:
     
     social_tool = SocialProfileTool()
     
+    # Create Groq LLM using ChatGroq
+    llm = ChatGroq(
+        model=GROQ_MODEL,
+        api_key=GROQ_API_KEY,
+        temperature=0.7
+    )
+    
     agent = Agent(
         role="Social Profile Analyzer",
         goal="Analyze GitHub repositories, LinkedIn profile, and contribution patterns to assess technical skills and project quality",
@@ -39,6 +48,7 @@ def create_social_agent() -> Agent:
         technical expertise from social profiles. You excel at identifying top performers and 
         understanding project impact.""",
         tools=[social_tool],
+        llm=llm,
         verbose=True,
         allow_delegation=False,
         max_iter=3

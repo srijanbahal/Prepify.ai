@@ -1,18 +1,33 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/actions/auth.action";
-import { db } from "@/lib/firebase/admin";
-import { FieldValue } from "firebase-admin/firestore";
+import { auth } from "@/lib/firebase/admin";
 
-export async function POST(request: NextRequest) {
+export async function POST(req: NextRequest) {
   try {
-    // Check authentication
-    const user = await getCurrentUser();
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    // Get Firebase ID token
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return NextResponse.json(
+        { error: "Unauthorized: No token provided" },
+        { status: 401 }
+      );
     }
 
-    // Parse request body
-    const { interviewId, transcript } = await request.json();
+    const idToken = authHeader.split("Bearer ")[1];
+
+    // Verify token
+    let decodedToken;
+    try {
+      decodedToken = await auth.verifyIdToken(idToken);
+    } catch (error) {
+      return NextResponse.json(
+        { error: "Unauthorized: Invalid token" },
+        { status: 401 }
+      );
+    }
+
+    // Parse body
+    const body = await req.json();
+    const { interviewId, transcript } = body;
 
     if (!interviewId || !transcript) {
       return NextResponse.json(
@@ -21,76 +36,41 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Fetch interview from Firestore
-    const interviewRef = db.collection("interviews").doc(interviewId);
-    const interviewSnap = await interviewRef.get();
+    // Forward to FastAPI
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+    const response = await fetch(`${backendUrl}/feedback/analyze`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${idToken}`,
+      },
+      body: JSON.stringify({
+        interview_id: interviewId,
+        transcript: transcript,
+      }),
+    });
 
-    if (!interviewSnap.exists) {
+    const data = await response.json();
+
+    if (!response.ok) {
       return NextResponse.json(
-        { error: "Interview not found" },
-        { status: 404 }
+        { error: data.detail || "Feedback analysis failed" },
+        { status: response.status }
       );
     }
 
-    const interview = interviewSnap.data();
-
-    // TODO: Call Python backend for feedback analysis
-    // For now, we'll create a mock response
-    const mockFeedback = {
-      overall_score: Math.floor(Math.random() * 30) + 70, // 70-100%
-      strong_points: [
-        "Clear communication and articulation",
-        "Good technical knowledge demonstrated",
-        "Showed enthusiasm for the role",
-        "Provided concrete examples from experience"
-      ],
-      areas_to_improve: [
-        "Could elaborate more on system design concepts",
-        "Practice explaining complex technical topics simply",
-        "Prepare more questions about the company/role"
-      ],
-      detailed_analysis: `Based on your interview performance, you demonstrated solid technical skills and good communication abilities. Your responses showed a clear understanding of the fundamentals and you provided relevant examples from your experience.
-
-Strengths observed:
-- Clear and concise communication
-- Good problem-solving approach
-- Relevant experience examples
-- Professional demeanor throughout
-
-Areas for improvement:
-- Could benefit from more practice with system design questions
-- Consider preparing more thoughtful questions about the company
-- Practice explaining complex concepts in simpler terms
-
-Overall, you performed well and showed strong potential for the role. Continue practicing technical interviews and focus on the areas mentioned above to further improve your interview skills.`
-    };
-
-    // Create feedback document
-    const feedbackId = `feedback_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
-    await db.collection("feedback").doc(feedbackId).set({
-      interviewId,
-      userId: user.id,
-      transcript,
-      ...mockFeedback,
-      createdAt: FieldValue.serverTimestamp(),
-    });
-
-    // Update interview status
-    await db.collection("interviews").doc(interviewId).update({
-      status: "completed",
-      transcript,
-      completedAt: FieldValue.serverTimestamp(),
-    });
-
     return NextResponse.json({
-      feedbackId,
-      summary: mockFeedback.detailed_analysis.substring(0, 200) + "...",
+      feedbackId: data.feedback_id,
+      summary: data.summary,
+      overallScore: data.overall_score,
+      strongPoints: data.strong_points,
+      areasToImprove: data.areas_to_improve,
+      detailedAnalysis: data.detailed_analysis,
     });
   } catch (error) {
-    console.error("Error analyzing feedback:", error);
+    console.error("Error in feedback route:", error);
     return NextResponse.json(
-      { error: "Failed to analyze feedback" },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }

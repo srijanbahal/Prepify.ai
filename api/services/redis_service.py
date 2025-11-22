@@ -10,6 +10,9 @@ logger = logging.getLogger(__name__)
 
 class RedisService:
     def __init__(self):
+        # In-memory fallback cache for when Redis is unavailable
+        self._memory_cache = {}
+        
         try:
             self.redis_client = redis.from_url(REDIS_URL, decode_responses=True)
             # Test connection
@@ -17,6 +20,7 @@ class RedisService:
             logger.info("Redis connection established successfully")
         except Exception as e:
             logger.error(f"Failed to connect to Redis: {e}")
+            logger.warning("Using in-memory cache as fallback")
             self.redis_client = None
 
     def _generate_cache_key(self, prefix: str, data: str) -> str:
@@ -27,7 +31,8 @@ class RedisService:
     async def get_cached(self, key: str) -> Optional[Dict]:
         """Get cached data"""
         if not self.redis_client:
-            return None
+            # Use in-memory cache as fallback
+            return self._memory_cache.get(key)
         
         try:
             cached_data = self.redis_client.get(key)
@@ -35,19 +40,28 @@ class RedisService:
                 return json.loads(cached_data)
         except Exception as e:
             logger.error(f"Error getting cached data: {e}")
+            # Fallback to in-memory cache
+            return self._memory_cache.get(key)
         return None
 
     async def set_cached(self, key: str, data: Dict, ttl: int = CACHE_TTL_ANALYSIS) -> bool:
         """Set cached data with TTL"""
         if not self.redis_client:
-            return False
+            # Use in-memory cache as fallback
+            self._memory_cache[key] = data
+            logger.info(f"Stored in memory cache: {key}")
+            return True
         
         try:
             self.redis_client.setex(key, ttl, json.dumps(data, default=str))
+            # Also store in memory as backup
+            self._memory_cache[key] = data
             return True
         except Exception as e:
             logger.error(f"Error setting cached data: {e}")
-            return False
+            # Fallback to in-memory cache
+            self._memory_cache[key] = data
+            return True
 
     async def invalidate(self, pattern: str) -> int:
         """Invalidate cache entries matching pattern"""
@@ -129,6 +143,11 @@ class RedisService:
         """Get interview context for follow-up questions"""
         key = f"interview_context:{interview_id}"
         return await self.get_cached(key)
+
+    async def cache_analysis(self, analysis_id: str, data: Dict) -> bool:
+        """Cache analysis results"""
+        key = f"analysis:{analysis_id}"
+        return await self.set_cached(key, data, CACHE_TTL_ANALYSIS)
 
 # Global Redis service instance
 redis_service = RedisService()
