@@ -1,24 +1,21 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { motion } from "framer-motion";
+import { ArrowLeft, Loader2, TrendingUp, CheckCircle2, AlertTriangle, FileText } from "lucide-react";
 import { toast } from "sonner";
-import { 
-  TrendingUp, 
-  CheckCircle, 
-  AlertCircle, 
-  ArrowRight,
-  Calendar,
-  Target,
-  Star,
-  ArrowLeft,
-  Loader2,
-  Download
-} from "lucide-react";
-// Import the client-side db instance and functions
-import { db } from "@/lib/firebase/client";
-import { doc, getDoc } from "firebase/firestore";
+import { auth } from "@/lib/firebase/client";
+
+interface Feedback {
+  feedbackId: string;
+  summary: string;
+  overallScore: number;
+  strongPoints: string[];
+  areasToImprove: string[];
+  detailedAnalysis: string;
+}
 
 export default function FeedbackPage() {
   const params = useParams();
@@ -28,28 +25,40 @@ export default function FeedbackPage() {
 
   useEffect(() => {
     const fetchFeedback = async () => {
-      if (!params.id) return;
-
       try {
-        // Use the client-side functions to get the document
-        const docRef = doc(db, "feedback", params.id as string);
-        const docSnap = await getDoc(docRef);
-        
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          setFeedback({
-            id: docSnap.id,
-            ...data,
-            createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date()
-          } as Feedback);
-        } else {
-          toast.error("Feedback not found");
-          router.push("/");
+        const currentUser = auth.currentUser;
+        if (!currentUser) {
+          router.push("/sign-in");
+          return;
         }
+
+        const idToken = await currentUser.getIdToken();
+        const backendUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+        
+        const response = await fetch(`${backendUrl}/feedback/${params.id}`, {
+          headers: {
+            "Authorization": `Bearer ${idToken}`,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch feedback");
+        }
+
+        const data = await response.json();
+        
+        // Transform backend response (snake_case) to frontend interface (camelCase)
+        setFeedback({
+          feedbackId: data.feedback_id,
+          summary: data.summary,
+          overallScore: data.overall_score,
+          strongPoints: data.strong_points || [],
+          areasToImprove: data.areas_to_improve || [],
+          detailedAnalysis: data.detailed_analysis
+        });
       } catch (error) {
         console.error("Error fetching feedback:", error);
         toast.error("Failed to load feedback");
-        router.push("/");
       } finally {
         setIsLoading(false);
       }
@@ -58,58 +67,12 @@ export default function FeedbackPage() {
     fetchFeedback();
   }, [params.id, router]);
 
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString("en-US", {
-      weekday: "long",
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
-  };
-
-  const getScoreColor = (score: number) => {
-    if (score >= 80) return "text-success-100";
-    if (score >= 60) return "text-yellow-400";
-    return "text-destructive-100";
-  };
-
-  const getScoreBgColor = (score: number) => {
-    if (score >= 80) return "bg-success-100/20";
-    if (score >= 60) return "bg-yellow-400/20";
-    return "bg-destructive-100/20";
-  };
-
-  const getScoreLabel = (score: number) => {
-    if (score >= 90) return "Excellent";
-    if (score >= 80) return "Very Good";
-    if (score >= 70) return "Good";
-    if (score >= 60) return "Fair";
-    return "Needs Improvement";
-  };
-
-  const renderStars = (score: number) => {
-    const stars = [];
-    const filledStars = Math.floor(score / 20);
-    const hasHalfStar = (score % 20) >= 10;
-
-    for (let i = 0; i < 5; i++) {
-      if (i < filledStars) {
-        stars.push(<Star key={i} className="w-5 h-5 text-yellow-400 fill-current" />);
-      } else if (i === filledStars && hasHalfStar) {
-        stars.push(<Star key={i} className="w-5 h-5 text-yellow-400 fill-current opacity-50" />);
-      } else {
-        stars.push(<Star key={i} className="w-5 h-5 text-gray-400" />);
-      }
-    }
-    return stars;
-  };
-
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
+      <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin text-primary-100 mx-auto mb-4" />
-          <p className="text-light-100">Loading feedback...</p>
+          <Loader2 className="w-8 h-8 animate-spin text-white mx-auto mb-4" />
+          <p className="text-zinc-400">Loading feedback...</p>
         </div>
       </div>
     );
@@ -118,14 +81,9 @@ export default function FeedbackPage() {
   if (!feedback) {
     return (
       <div className="text-center py-12">
-        <AlertCircle className="w-12 h-12 text-destructive-100 mx-auto mb-4" />
-        <h2 className="text-2xl font-semibold text-primary-100 mb-2">
-          Feedback Not Found
-        </h2>
-        <p className="text-light-100 mb-6">
-          The feedback you're looking for doesn't exist or has been deleted.
-        </p>
-        <Link href="/" className="btn-primary">
+        <h2 className="text-2xl font-semibold text-white mb-2">Feedback Not Found</h2>
+        <p className="text-zinc-400 mb-6">The feedback you're looking for doesn't exist.</p>
+        <Link href="/" className="inline-flex px-6 py-3 bg-white text-black rounded-xl font-bold hover:bg-zinc-200 transition-colors">
           Back to Dashboard
         </Link>
       </div>
@@ -133,187 +91,110 @@ export default function FeedbackPage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8">
+    <div className="max-w-6xl mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="flex items-center gap-4 mb-2">
-            <Link href="/" className="btn-secondary">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Dashboard
-            </Link>
-            <div className="flex items-center gap-2 text-light-100">
-              <Calendar className="w-4 h-4" />
-              <span className="text-sm">{formatDate(feedback.createdAt)}</span>
-            </div>
-          </div>
-          <h1 className="text-4xl font-bold text-primary-100">
-            Interview Feedback
-          </h1>
-          <p className="text-light-100 mt-2">
-            Detailed analysis of your mock interview performance
-          </p>
-        </div>
-        <button className="btn-secondary flex items-center gap-2">
-          <Download className="w-4 h-4" />
-          Export Report
-        </button>
+      <div className="mb-8">
+        <Link href="/" className="inline-flex items-center gap-2 text-zinc-400 hover:text-white transition-colors mb-4">
+          <ArrowLeft className="w-4 h-4" />
+          Back to Dashboard
+        </Link>
+        <h1 className="text-4xl font-bold text-white mb-2">Interview Feedback</h1>
+        <p className="text-zinc-400">Here's your performance analysis from the mock interview.</p>
       </div>
 
       {/* Overall Score */}
-      <div className="card-border">
-        <div className="card p-8">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <div className="p-3 bg-primary-200/20 rounded-lg">
-                <TrendingUp className="w-6 h-6 text-primary-100" />
-              </div>
-              <div>
-                <h2 className="text-2xl font-semibold text-primary-100">
-                  Overall Performance
-                </h2>
-                <p className="text-light-100">
-                  Your interview performance score
-                </p>
-              </div>
-            </div>
-            <div className={`p-6 rounded-2xl ${getScoreBgColor(feedback.overall_score)}`}>
-              <span className={`text-5xl font-bold ${getScoreColor(feedback.overall_score)}`}>
-                {Math.round(feedback.overall_score)}%
-              </span>
-            </div>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="mb-8 p-8 rounded-3xl bg-gradient-to-br from-indigo-500/10 to-purple-500/10 border border-indigo-500/20 relative overflow-hidden"
+      >
+        <div className="absolute top-0 right-0 w-40 h-40 bg-indigo-500/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+        
+        <div className="relative z-10">
+          <div className="flex items-center gap-2 mb-2">
+            <TrendingUp className="w-5 h-5 text-indigo-400" />
+            <p className="text-sm font-bold text-indigo-400 uppercase tracking-wider">Overall Performance Score</p>
           </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="text-center">
-              <div className="flex justify-center mb-2">
-                {renderStars(feedback.overall_score)}
-              </div>
-              <p className="text-lg font-semibold text-primary-100">
-                {getScoreLabel(feedback.overall_score)}
-              </p>
-            </div>
-            
-            <div className="text-center">
-              <div className="w-16 h-16 bg-dark-200 rounded-full flex items-center justify-center mx-auto mb-2">
-                <Target className="w-8 h-8 text-primary-100" />
-              </div>
-              <p className="text-sm text-light-100">Interview Analysis</p>
-            </div>
-            
-            <div className="text-center">
-              <div className="w-16 h-16 bg-dark-200 rounded-full flex items-center justify-center mx-auto mb-2">
-                <TrendingUp className="w-8 h-8 text-primary-100" />
-              </div>
-              <p className="text-sm text-light-100">Performance Insights</p>
-            </div>
-          </div>
-
-          <div className="mt-6 w-full bg-dark-200 rounded-full h-3">
-            <div
-              className={`h-3 rounded-full transition-all duration-1000 ${
-                feedback.overall_score >= 80
-                  ? "bg-success-100"
-                  : feedback.overall_score >= 60
-                  ? "bg-yellow-400"
-                  : "bg-destructive-100"
-              }`}
-              style={{ width: `${feedback.overall_score}%` }}
-            />
-          </div>
+          <h2 className="text-6xl font-bold text-white mb-2">{Math.round(feedback.overallScore)}%</h2>
+          <p className="text-zinc-300">{feedback.summary}</p>
         </div>
-      </div>
+      </motion.div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      {/* Grid Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         {/* Strong Points */}
-        <div className="card-border">
-          <div className="card p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-2 bg-success-100/20 rounded-lg">
-                <CheckCircle className="w-5 h-5 text-success-100" />
-              </div>
-              <h3 className="text-xl font-semibold text-primary-100">
-                What You Did Well
-              </h3>
-            </div>
-            <div className="space-y-3">
-              {feedback.strong_points.map((point, index) => (
-                <div key={index} className="flex items-start gap-3">
-                  <CheckCircle className="w-4 h-4 text-success-100 mt-1 flex-shrink-0" />
-                  <p className="text-light-100">{point}</p>
-                </div>
-              ))}
-            </div>
+        <motion.div
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.1 }}
+          className="p-6 rounded-2xl bg-white/5 border border-white/10"
+        >
+          <div className="flex items-center gap-2 mb-4">
+            <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+            <h3 className="text-xl font-bold text-white">Strong Points</h3>
           </div>
-        </div>
+          <ul className="space-y-2">
+            {feedback.strongPoints.map((point, index) => (
+              <li key={index} className="flex items-start gap-2 text-zinc-300">
+                <span className="text-emerald-400 mt-1">✓</span>
+                <span className="text-sm">{point}</span>
+              </li>
+            ))}
+          </ul>
+        </motion.div>
 
         {/* Areas to Improve */}
-        <div className="card-border">
-          <div className="card p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-2 bg-destructive-100/20 rounded-lg">
-                <AlertCircle className="w-5 h-5 text-destructive-100" />
-              </div>
-              <h3 className="text-xl font-semibold text-primary-100">
-                Areas for Improvement
-              </h3>
-            </div>
-            <div className="space-y-3">
-              {feedback.areas_to_improve.map((area, index) => (
-                <div key={index} className="flex items-start gap-3">
-                  <ArrowRight className="w-4 h-4 text-destructive-100 mt-1 flex-shrink-0" />
-                  <p className="text-light-100">{area}</p>
-                </div>
-              ))}
-            </div>
+        <motion.div
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.2 }}
+          className="p-6 rounded-2xl bg-white/5 border border-white/10"
+        >
+          <div className="flex items-center gap-2 mb-4">
+            <AlertTriangle className="w-5 h-5 text-orange-400" />
+            <h3 className="text-xl font-bold text-white">Areas to Improve</h3>
           </div>
-        </div>
+          <ul className="space-y-2">
+            {feedback.areasToImprove.map((area, index) => (
+              <li key={index} className="flex items-start gap-2 text-zinc-300">
+                <span className="text-orange-400 mt-1">→</span>
+                <span className="text-sm">{area}</span>
+              </li>
+            ))}
+          </ul>
+        </motion.div>
       </div>
 
       {/* Detailed Analysis */}
-      <div className="card-border">
-        <div className="card p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-2 bg-primary-200/20 rounded-lg">
-              <Target className="w-5 h-5 text-primary-100" />
-            </div>
-            <h3 className="text-xl font-semibold text-primary-100">
-              Detailed Analysis
-            </h3>
-          </div>
-          <div className="prose prose-invert max-w-none">
-            <div className="text-light-100 leading-relaxed whitespace-pre-wrap">
-              {feedback.detailed_analysis}
-            </div>
-          </div>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3 }}
+        className="p-6 rounded-2xl bg-white/5 border border-white/10"
+      >
+        <div className="flex items-center gap-2 mb-4">
+          <FileText className="w-5 h-5 text-blue-400" />
+          <h3 className="text-xl font-bold text-white">Detailed Analysis</h3>
         </div>
-      </div>
+        <div className="prose prose-invert max-w-none">
+          <p className="text-zinc-300 leading-relaxed whitespace-pre-wrap">{feedback.detailedAnalysis}</p>
+        </div>
+      </motion.div>
 
-      {/* Action Items */}
-      <div className="card-border">
-        <div className="card p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-primary-200/20 rounded-lg">
-                <Target className="w-5 h-5 text-primary-100" />
-              </div>
-              <h3 className="text-xl font-semibold text-primary-100">
-                Next Steps
-              </h3>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Link href="/analyze" className="btn-primary text-center">
-              New Analysis
-            </Link>
-            <Link href="/" className="btn-secondary text-center">
-              View All Analyses
-            </Link>
-            <button className="btn-secondary text-center">
-              Schedule Practice
-            </button>
-          </div>
-        </div>
+      {/* Actions */}
+      <div className="mt-8 flex gap-4">
+        <Link
+          href="/analyze"
+          className="px-6 py-3 rounded-xl bg-white text-black font-bold hover:bg-zinc-200 transition-colors"
+        >
+          New Analysis
+        </Link>
+        <Link
+          href="/"
+          className="px-6 py-3 rounded-xl bg-white/10 text-white font-bold border border-white/10 hover:bg-white/20 transition-colors"
+        >
+          Dashboard
+        </Link>
       </div>
     </div>
   );

@@ -16,9 +16,8 @@ import {
   Linkedin,
   Loader2
 } from "lucide-react";
-// Import the client-side db instance and functions
-import { db } from "@/lib/firebase/client"; 
-import { doc, getDoc } from "firebase/firestore";
+// Import Firebase auth to get user token for API calls
+import { auth } from "@/lib/firebase/client";
 
 export default function ReportPage() {
   const params = useParams();
@@ -32,22 +31,55 @@ export default function ReportPage() {
       if (!params.id) return;
 
       try {
-        // Use the client-side functions to get the document
-        const docRef = doc(db, "analyses", params.id as string);
-        const docSnap = await getDoc(docRef);
-        
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          setAnalysis({
-            id: docSnap.id,
-            ...data,
-            // Convert Firestore Timestamp to Date if it exists
-            createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date()
-          } as Analysis);
-        } else {
-          toast.error("Analysis not found");
-          router.push("/");
+        // Get the current user's ID token for authentication
+        const user = auth.currentUser;
+        if (!user) {
+          toast.error("Please sign in to view analysis");
+          router.push("/sign-in");
+          return;
         }
+
+        const idToken = await user.getIdToken();
+
+        // Fetch analysis from backend API
+        const response = await fetch(`http://localhost:8000/analysis/${params.id}`, {
+          headers: {
+            "Authorization": `Bearer ${idToken}`,
+          },
+        });
+
+        if (!response.ok) {
+          if (response.status === 404) {
+            toast.error("Analysis not found");
+          } else if (response.status === 403) {
+            toast.error("Access denied");
+          } else {
+            toast.error("Failed to load analysis");
+          }
+          router.push("/");
+          return;
+        }
+
+        const data = await response.json();
+        
+        // Transform backend response to match frontend Analysis interface
+        const synthesis = data.synthesis_result || {};
+        setAnalysis({
+          id: data.id,
+          userId: data.user_id,
+          match_score: data.match_score || 0,
+          skill_gaps: synthesis.skill_gaps || [],
+          strengths: synthesis.strengths || [],
+          recommendations: synthesis.recommendations || [],
+          interview_focus_areas: synthesis.interview_focus_areas || [],
+          createdAt: new Date(data.created_at),
+          resume_text: data.resume_text,
+          job_description: data.job_description,
+          social_profiles: {
+            github: data.github_url,
+            linkedin: data.linkedin_url,
+          },
+        });
       } catch (error) {
         console.error("Error fetching analysis:", error);
         toast.error("Failed to load analysis");
@@ -64,23 +96,35 @@ export default function ReportPage() {
     setIsGeneratingInterview(true);
     
     try {
-      const response = await fetch("/api/interview", {
+      // Get the current user's ID token for authentication
+      const user = auth.currentUser;
+      if (!user) {
+        toast.error("Please sign in to start interview");
+        return;
+      }
+
+      const idToken = await user.getIdToken();
+
+      // Call backend API to generate interview
+      const response = await fetch("http://localhost:8000/interview/generate", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Authorization": `Bearer ${idToken}`,
         },
         body: JSON.stringify({
-          analysisId: analysis?.id,
+          analysis_id: analysis?.id,
         }),
       });
 
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error || "Failed to generate interview");
+        throw new Error(result.detail || "Failed to generate interview");
       }
 
-      router.push(`/interview/${result.interviewId}`);
+      // Navigate to interview page with the generated interview ID
+      router.push(`/interview/${result.interview_id}`);
     } catch (error) {
       console.error("Error generating interview:", error);
       toast.error(error instanceof Error ? error.message : "Failed to generate interview");

@@ -1,8 +1,10 @@
-from crewai import Agent, Task, Crew, Process
+from crewai import Agent, Task
 from crewai.tools import BaseTool
 from typing import Dict, Any
 import logging
 from services.gemini_service import gemini_service
+from config import GROQ_API_KEY, GROQ_MODEL
+from langchain_groq import ChatGroq
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +33,13 @@ def create_resume_agent() -> Agent:
     
     resume_tool = ResumeAnalysisTool()
     
+    # Create Groq LLM using ChatGroq
+    llm = ChatGroq(
+        model=GROQ_MODEL,
+        api_key=GROQ_API_KEY,
+        temperature=0.7
+    )
+    
     agent = Agent(
         role="Expert Resume Analyzer",
         goal="Extract comprehensive information from resume including skills, experience, education, projects, and achievements",
@@ -39,6 +48,7 @@ def create_resume_agent() -> Agent:
         quantifying achievements, and understanding career progression patterns. You excel at parsing 
         complex technical resumes and extracting actionable insights.""",
         tools=[resume_tool],
+        llm=llm,
         verbose=True,
         allow_delegation=False,
         max_iter=3
@@ -54,7 +64,7 @@ def create_resume_task(resume_text: str) -> Task:
         Analyze the following resume text and extract structured information:
         
         Resume Text:
-        {resume_text}
+       {resume_text}
         
         Your analysis should include:
         1. Technical and soft skills identification

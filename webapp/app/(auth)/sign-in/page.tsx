@@ -1,7 +1,15 @@
-import AuthForm from "@/components/AuthForm";
+import { getCurrentUser } from "@/lib/actions/auth.action";
+import { redirect } from "next/navigation";
+import AuthLayout from "@/components/auth/AuthLayout";
+import AuthForm from "@/components/auth/AuthForm";
 
-const Page = () => {
-  return <AuthForm type="sign-in" />;
-};
+export default async function SignInPage() {
+  const user = await getCurrentUser();
+  if (user) redirect("/");
 
-export default Page;
+  return (
+    <AuthLayout>
+      <AuthForm type="sign-in" />
+    </AuthLayout>
+  );
+}

@@ -1,18 +1,33 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/actions/auth.action";
-import { db } from "@/lib/firebase/admin";
-import { FieldValue } from "firebase-admin/firestore";
+import { auth } from "@/lib/firebase/admin";
 
-export async function POST(request: NextRequest) {
+export async function POST(req: NextRequest) {
   try {
-    // Check authentication
-    const user = await getCurrentUser();
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    // Get Firebase ID token
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return NextResponse.json(
+        { error: "Unauthorized: No token provided" },
+        { status: 401 }
+      );
     }
 
-    // Parse request body
-    const { analysisId } = await request.json();
+    const idToken = authHeader.split("Bearer ")[1];
+
+    // Verify token
+    let decodedToken;
+    try {
+      decodedToken = await auth.verifyIdToken(idToken);
+    } catch (error) {
+      return NextResponse.json(
+        { error: "Unauthorized: Invalid token" },
+        { status: 401 }
+      );
+    }
+
+    // Parse body
+    const body = await req.json();
+    const { analysisId } = body;
 
     if (!analysisId) {
       return NextResponse.json(
@@ -21,49 +36,36 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Fetch analysis from Firestore
-    const analysisRef = db.collection("analyses").doc(analysisId);
-    const analysisSnap = await analysisRef.get();
+    // Forward to FastAPI
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+    const response = await fetch(`${backendUrl}/interview/generate`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${idToken}`,
+      },
+      body: JSON.stringify({
+        analysis_id: analysisId,
+      }),
+    });
 
-    if (!analysisSnap.exists) {
+    const data = await response.json();
+
+    if (!response.ok) {
       return NextResponse.json(
-        { error: "Analysis not found" },
-        { status: 404 }
+        { error: data.detail || "Interview generation failed" },
+        { status: response.status }
       );
     }
 
-    const analysis = analysisSnap.data();
-
-    // Generate interview questions based on skill gaps and focus areas
-    const questions = [
-      "Tell me about yourself and your background.",
-      `How would you approach solving a problem related to ${analysis.skill_gaps?.[0] || 'system design'}?`,
-      "Describe a challenging project you've worked on and how you overcame obstacles.",
-      `What's your experience with ${analysis.interview_focus_areas?.[0] || 'modern development practices'}?`,
-      "How do you stay updated with the latest technologies in your field?",
-      "Describe a time when you had to learn a new technology quickly.",
-      "What questions do you have for us about the role or company?"
-    ];
-
-    // Create interview document
-    const interviewId = `interview_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
-    await db.collection("interviews").doc(interviewId).set({
-      analysisId,
-      userId: user.id,
-      questions,
-      status: "pending",
-      createdAt: FieldValue.serverTimestamp(),
-    });
-
     return NextResponse.json({
-      interviewId,
-      initial_questions: questions,
+      interviewId: data.interview_id,
+      initialQuestions: data.initial_questions,
     });
   } catch (error) {
-    console.error("Error generating interview:", error);
+    console.error("Error in interview route:", error);
     return NextResponse.json(
-      { error: "Failed to generate interview" },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }

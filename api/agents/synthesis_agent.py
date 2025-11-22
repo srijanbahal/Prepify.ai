@@ -1,8 +1,10 @@
-from crewai import Agent, Task, Crew, Process
+from crewai import Agent, Task
 from crewai.tools import BaseTool
 from typing import Dict, Any
 import logging
 from services.gemini_service import gemini_service
+from config import GROQ_API_KEY, GROQ_MODEL
+from langchain_groq import ChatGroq
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +19,7 @@ class SynthesisTool(BaseTool):
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             try:
-                # Parse the string inputs back to dicts
+                # Parse the  string inputs back to dicts
                 import json
                 resume_data = json.loads(resume_analysis) if isinstance(resume_analysis, str) else resume_analysis
                 job_data = json.loads(job_analysis) if isinstance(job_analysis, str) else job_analysis
@@ -36,6 +38,13 @@ def create_synthesis_agent() -> Agent:
     
     synthesis_tool = SynthesisTool()
     
+    # Create Groq LLM using ChatGroq
+    llm = ChatGroq(
+       model=GROQ_MODEL,
+        api_key=GROQ_API_KEY,
+        temperature=0.7
+    )
+    
     agent = Agent(
         role="Career Intelligence Synthesizer",
         goal="Combine all agent analyses into a comprehensive career intelligence report with actionable insights",
@@ -44,6 +53,7 @@ def create_synthesis_agent() -> Agent:
         their career paths by providing data-driven insights and actionable recommendations. You excel 
         at identifying patterns, calculating match scores, and creating personalized development plans.""",
         tools=[synthesis_tool],
+        llm=llm,
         verbose=True,
         allow_delegation=False,
         max_iter=3

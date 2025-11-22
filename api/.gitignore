@@ -18,7 +18,7 @@ dist/
 *.egg-info/
 
 # Sensitive information/configuration
-.env
+# .env
 config.ini
 secrets.py
 

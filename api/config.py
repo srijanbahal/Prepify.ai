@@ -6,10 +6,12 @@ load_dotenv()
 # API Keys
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 HF_API_KEY = os.getenv("HF_API_KEY")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 # Model Configuration
 GEMINI_MODEL = "gemini-2.0-flash-exp"
 HF_MODEL = "meta-llama/Llama-3.2-3B-Instruct"
+GROQ_MODEL = "llama-3.3-70b-versatile"
 
 # Redis Configuration
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
