@@ -506,15 +506,15 @@ async def get_dashboard_data(
     """
     try:
         # Resolve Supabase User ID
-        supabase_user = await supabase_service.get_user(user_id)
+        supabase_user = supabase_service.get_user(user_id)
         if not supabase_user:
             raise HTTPException(status_code=404, detail="User not found")
         
         db_user_id = supabase_user['id']
         
         # Fetch data concurrently (in a real async scenario, we'd use gather, but sequential is fine for now)
-        analyses = await supabase_service.get_user_analyses(db_user_id, limit=5)
-        interviews = await supabase_service.get_user_interviews(db_user_id, limit=5)
+        analyses = supabase_service.get_user_analyses(db_user_id, limit=5)
+        interviews = supabase_service.get_user_interviews(db_user_id, limit=5)
         
         # Calculate stats
         total_analyses = len(analyses) # This is just recent, ideally we'd have a count query but this is a start

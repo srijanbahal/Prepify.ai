@@ -10,20 +10,19 @@ import {
   HelpCircle,
   Sparkles,
   TrendingUp,
-  User as UserIcon, // 1. Renamed the imported icon to "UserIcon"
+  User as UserIcon,
 } from "lucide-react";
 
 interface SidebarProps {
-  user: any; // 2. Now "User" correctly refers to your global type
+  user: any;
 }
 
-// 3. Updated navigation links
 const navigation = [
-  { name: "Dashboard", href: "/", icon: LayoutDashboard },
+  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "New Analysis", href: "/analyze", icon: Sparkles },
   { name: "Analytics", href: "/analytics", icon: BarChart3 },
   { name: "Mock Interviews", href: "/interviews", icon: MessageSquare },
-  { name: "My Profile", href: "/profile", icon: UserIcon }, // 4. Use the aliased "UserIcon"
+  { name: "My Profile", href: "/profile", icon: UserIcon },
 ];
 
 const secondaryNavigation = [
@@ -38,7 +37,7 @@ export default function Sidebar({ user }: SidebarProps) {
     <aside className="fixed left-0 top-0 z-40 h-screen w-64 border-r border-white/10 bg-black backdrop-blur-xl">
       {/* Logo */}
       <div className="flex h-16 items-center border-b border-white/10 px-6">
-        <Link href="/" className="flex items-center gap-2">
+        <Link href="/dashboard" className="flex items-center gap-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-600 to-purple-600">
             <TrendingUp className="h-5 w-5 text-white" />
           </div>
@@ -53,7 +52,7 @@ export default function Sidebar({ user }: SidebarProps) {
         <div className="space-y-1">
           {navigation.map((item) => {
             const isActive =
-              item.href === "/"
+              item.href === "/dashboard"
                 ? pathname === item.href
                 : pathname.startsWith(item.href);
             return (

@@ -84,7 +84,7 @@ export default function ReportPage() {
           } else {
             toast.error("Failed to load analysis");
           }
-          router.push("/");
+          router.push("/dashboard");
           return;
         }
 
@@ -111,7 +111,7 @@ export default function ReportPage() {
       } catch (error) {
         console.error("Error fetching analysis:", error);
         toast.error("Failed to load analysis");
-        router.push("/");
+        router.push("/dashboard");
       } finally {
         setIsLoading(false);
       }
@@ -200,7 +200,7 @@ export default function ReportPage() {
         <p className="text-zinc-400 mb-6">
           The analysis you're looking for doesn't exist or has been deleted.
         </p>
-        <Link href="/" className="px-4 py-2 bg-white text-black rounded-lg font-bold hover:bg-zinc-200 transition-colors">
+        <Link href="/dashboard" className="px-4 py-2 bg-white text-black rounded-lg font-bold hover:bg-zinc-200 transition-colors">
           Back to Dashboard
         </Link>
       </div>
@@ -231,7 +231,7 @@ export default function ReportPage() {
             </div>
           </div>
         </div>
-        <Link href="/" className="text-sm text-zinc-400 hover:text-white transition-colors">
+        <Link href="/dashboard" className="text-sm text-zinc-400 hover:text-white transition-colors">
           Back to Dashboard
         </Link>
       </div>
